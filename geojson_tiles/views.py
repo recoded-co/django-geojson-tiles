@@ -55,6 +55,7 @@ class GeoJSONTile:
                 pass
 
     def __call__(self, request, z, x, y):
+        print "__call__ "
         z = int(z)
         x = int(x)
         y = int(y)
@@ -65,6 +66,50 @@ class GeoJSONTile:
         bbox, modest_map = self.coords_to_bbox_mmap(z, x, y)
 
         shapes = self.model.objects.filter(**{
+            '%s__intersects' % self.geometry_field: bbox
+        })
+
+        # Can't trim point geometries to a boundary
+        self.trim_to_boundary = self.trim_to_boundary \
+            and not isinstance(shapes.model._meta.get_field(self.geometry_field), PointField) \
+            and not isinstance(shapes.model._meta.get_field(self.geometry_field), MultiPointField) \
+
+        if self.trim_to_boundary:
+            shapes = shapes.intersection(bbox)
+            geometry_field = 'intersection'
+        else:
+            geometry_field = self.geometry_field
+
+        serializer_options = {
+            'bbox': bbox,
+            'geometry_field': geometry_field,
+            'srid': self.srid,
+        }
+        if self.properties:
+            serializer_options.update(properties=self.properties)
+        if self.primary_key:
+            serializer_options.update(primary_key=self.primary_key)
+
+        serializer = GeoJSONSerializer()
+
+        shapes = self.pre_serialization(shapes, z, x, y, bbox)
+        data = serializer.serialize(shapes, **serializer_options)
+        data = self.post_serialization(data, z, x, y, bbox)
+        return HttpResponse(data, content_type='application/json')
+
+    def execute(self, request, z, x, y, filter_prop):
+
+        z = int(z)
+        x = int(x)
+        y = int(y)
+
+        if self.geometry_field == None:
+            return HttpResponseServerError('No geometry was specified or the model "%s" did not have a GeometryField present' % (self.model._meta.object_name))
+
+        bbox, modest_map = self.coords_to_bbox_mmap(z, x, y)
+
+        shapes = self.model.objects.filter(**filter_prop)\
+            .filter(**{
             '%s__intersects' % self.geometry_field: bbox
         })
 
