@@ -167,7 +167,7 @@ class GeoJSONSerializer(PythonSerializer):
 
     def serialize_queryset(self, queryset):
         opt = queryset.model._meta
-        local_fields = queryset.model._meta.local_fields
+        local_fields = queryset.model._meta.fields
         many_to_many_fields = queryset.model._meta.many_to_many
 
         # populate each queryset obj as a feature

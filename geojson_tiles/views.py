@@ -55,7 +55,7 @@ class GeoJSONTile:
                 pass
 
     def __call__(self, request, z, x, y):
-        print "__call__ "
+
         z = int(z)
         x = int(x)
         y = int(y)
